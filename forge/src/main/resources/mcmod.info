@@ -1,0 +1,16 @@
+[
+{
+  "modid": "WorldBorderViewer",
+  "name": "World Border Viewer",
+  "description": "A visual representation of the world border",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["waffle-stomper"],
+  "credits": "The Bowmore Distillery",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]

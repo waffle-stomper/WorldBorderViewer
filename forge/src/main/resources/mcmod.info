@@ -5,12 +5,12 @@
   "description": "A visual representation of the world border",
   "version": "${version}",
   "mcversion": "${mcversion}",
-  "url": "",
+  "url": "https://github.com/waffle-stomper/WorldBorderViewer",
   "updateUrl": "",
   "authorList": ["waffle-stomper"],
   "credits": "The Bowmore Distillery",
   "logoFile": "",
   "screenshots": [],
-  "dependencies": []
+  "dependencies": ["WaffleCore"]
 }
 ]

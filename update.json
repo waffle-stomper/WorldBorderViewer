@@ -1,0 +1,9 @@
+{
+  "homepage": "https://github.com/waffle-stomper/WorldBorderViewer/releases",
+  "promos":{
+    "1.10-recommended": "0.2.8"
+  },
+  "1.10":{
+    "0.2.8": "Added update notifications"
+  }
+}

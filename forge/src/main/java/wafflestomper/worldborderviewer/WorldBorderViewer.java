@@ -1,7 +1,14 @@
 package wafflestomper.worldborderviewer;
 
+import java.util.HashMap;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.lwjgl.opengl.GL11;
 
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.ScaledResolution;
@@ -10,41 +17,63 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.VertexBuffer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.launchwrapper.Launch;
+import net.minecraft.network.NetworkManager;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.Mod.EventHandler;
+import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
 import net.minecraftforge.fml.common.gameevent.TickEvent.RenderTickEvent;
+import net.minecraftforge.fml.common.network.FMLEmbeddedChannel;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent;
+import net.minecraftforge.fml.common.network.NetworkRegistry;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent.ClientConnectedToServerEvent;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent.ClientCustomPacketEvent;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent.CustomPacketEvent;
+import net.minecraftforge.fml.relauncher.Side;
+import wafflestomper.wafflecore.WaffleCore;
+import wafflestomper.wafflecore.WorldInfoEvent;
 
-@Mod(modid = WorldBorderViewer.MODID, version = WorldBorderViewer.VERSION, name = WorldBorderViewer.NAME)
+@Mod(modid = WorldBorderViewer.MODID, version = WorldBorderViewer.VERSION, name = WorldBorderViewer.NAME, 
+		dependencies = "required-after:WaffleCore",
+		updateJSON = "https://raw.githubusercontent.com/waffle-stomper/WorldBorderViewer/master/update.json")
 public class WorldBorderViewer
 {
 	
     public static final String MODID = "WorldBorderViewer";
-    public static final String VERSION = "0.2.8";
+    public static final String VERSION = "0.3.1";
     public static final String NAME = "World Border Viewer";
     
     public static final int viewRadiusBlocks = 5*16; //Used for quick check
     private Minecraft mc = Minecraft.getMinecraft();
     private WBConfigManager config = new WBConfigManager();
+    private static final Logger logger = LogManager.getLogger("WorldBorderViewer");
+    private static final WaffleCore wafflecore = WaffleCore.INSTANCE;
     
 	private int connectWait = 10;
 	private boolean connected = false;
 	boolean devEnv = false;
 	private long lastMessage = 0;
 	
-	private double worldRadius = 1110d;
-	private double portalRadius = 1100d;
+	private double defaultWorldRadius = 1110d;
+	private double defaultPortalRadius = 1100d;
 	private int circleSegments = 4000;
-	private double halfPortalAngle = 30d;
+	private double defaultHalfPortalAngle = 30d;
 	private double renderDistance = 64d;
 	private boolean enableDebug = false;
+	
+	private static String currentServerName;
+	private static String currentWorldName;
+	
+	private ShardConfig currentShard;
 	
 	
     public WorldBorderViewer(){
@@ -58,13 +87,38 @@ public class WorldBorderViewer
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
     	this.config.init(event);
-    	this.worldRadius = this.config.getWorldRadius();
-		this.portalRadius = this.config.getPortalRadius();
+    	this.defaultWorldRadius = this.config.getDefaultWorldRadius();
+		this.defaultPortalRadius = this.config.getDefaultPortalRadius();
 		this.circleSegments = this.config.getCircleSegments();
-		this.halfPortalAngle = this.config.getHalfPortalAngle();
+		this.defaultHalfPortalAngle = this.config.getDefaultHalfPortalAngle();
 		this.renderDistance = this.config.getRenderDistance();
 		this.enableDebug = this.config.getEnableDebug();
-    	
+    }
+    
+    
+    /**
+     * Server/world info messages (mana from heaven)
+     */
+    @SubscribeEvent
+    public void worldInfoReceived(WorldInfoEvent event){
+    	logger.debug("Received WorldInfoEvent - " + event.worldID + "@" + event.dirtyServerAddress);
+    	currentServerName = event.cleanServerAddress;
+    	currentWorldName = event.worldID;
+    }
+    
+    
+    /**
+     * Rate Limited Debug Message
+     */
+    private static final long rldmInterval = 5000;
+    HashMap<String, Long> rldmLastTimes = new HashMap<String, Long>();
+    public void rldm(String message){
+    	if (this.rldmLastTimes.containsKey(message)){
+    		long rldmLast = rldmLastTimes.get(message);
+    		if (System.currentTimeMillis()-rldmLast < rldmInterval){ return; }
+    	}
+    	this.rldmLastTimes.put(message, System.currentTimeMillis());
+    	logger.warn("RLDM: " + message);
     }
     
     
@@ -79,6 +133,26 @@ public class WorldBorderViewer
     
     
     public boolean isAngleInPortal(double theta, double halfPortalAngle){
+    	if (this.currentShard != null){
+			for (PortalConfig p : this.currentShard.portals){
+				// Check if theta lies within angleFrom and angleTo
+				if (Double.compare(theta, p.angleFrom) >= 0 && Double.compare(theta, p.angleTo) <=0){
+					return true;
+				}
+				// Special case where the portal passes through 0 degrees (thus angleFrom is higher numerically than angleTo)
+				if (Double.compare(p.angleFrom, p.angleTo) > 0){
+					if (Double.compare(theta, p.angleFrom) >= 0){
+						return true;
+					}
+					else if (Double.compare(theta, p.angleTo) <= 0){
+						return true;
+					}
+				}
+			}
+			return false;
+    	}
+    	
+    	// If the current server or shard can't be found in the config, we fall back on the default values    	
     	if (theta > 360d-halfPortalAngle || theta < halfPortalAngle){
     		return true;
     	}
@@ -109,7 +183,7 @@ public class WorldBorderViewer
     			return;
     		}
     		double distFromCenter = player.getDistance(0, player.posY, 0);
-    		double playerAngle = Math.toDegrees(Math.asin(this.mc.thePlayer.posX/distFromCenter));
+    		double playerAngle = Math.toDegrees(Math.PI - Math.atan2(player.posX, player.posZ));
     		String angleText = String.valueOf(playerAngle);
     		String centerText = String.valueOf(distFromCenter);
     		int maxWidth = angleText.lastIndexOf('.')+2;
@@ -121,6 +195,12 @@ public class WorldBorderViewer
     			centerText = centerText.substring(0, maxWidth);
     		}
     		String displayString = angleText + " deg        " + centerText + " m";
+    		if (currentWorldName != null){
+    			displayString += "        " + currentWorldName.substring(0,10) + "...";
+    		}
+    		else{
+    			displayString += "no_world_name";
+    		}
     		int textWidth = this.mc.fontRendererObj.getStringWidth(displayString);
     		ScaledResolution scaledResolution = new ScaledResolution(this.mc);
       		int xPos = scaledResolution.getScaledWidth()/2 - textWidth/2;
@@ -172,12 +252,24 @@ public class WorldBorderViewer
      * Finds the portal angle inside the two angles supplied
      */
     private double getInternalPortalAngle(double startAng, double endAng){
+    	if (this.currentShard != null){
+			for (PortalConfig p : this.currentShard.portals){
+				if (Double.compare(startAng, p.angleFrom) <= 0 && Double.compare(endAng, p.angleFrom) >= 0){
+					return(p.angleFrom);
+				}
+				if (Double.compare(startAng, p.angleTo) <= 0 && Double.compare(endAng, p.angleTo) >= 0){
+					return(p.angleTo);
+				}
+			}
+		}
+    	
+    	// If we can't find a matching shard config, we fall back on the default behavior
     	for (int cardinal=0; cardinal<=360; cardinal+=90){
-    		double rightPortal = cardinal+this.halfPortalAngle;
+    		double rightPortal = cardinal+this.defaultHalfPortalAngle;
     		if (rightPortal >= startAng && rightPortal <= endAng){
     			return(rightPortal);
     		}
-    		double leftPortal = cardinal-this.halfPortalAngle;
+    		double leftPortal = cardinal-this.defaultHalfPortalAngle;
     		if (leftPortal < 0){ leftPortal+= 360; }
     		if (leftPortal >= startAng && leftPortal <= endAng){
     			return(leftPortal);
@@ -191,8 +283,20 @@ public class WorldBorderViewer
      * Determines whether we're working on the left or right portal side (when viewed from the center)
      */
     private boolean isLeftSide(double angle){
+    	//TODO: Figure out why the logic has to be reversed for the new code. My head hurts right now.
+    	if (this.currentShard != null){
+			for (PortalConfig p : this.currentShard.portals){
+				if (Double.compare(angle, p.angleFrom) == 0){
+					return true;
+				}
+				else if (Double.compare(angle, p.angleTo) == 0){
+					return false;
+				}
+			}
+		}
+
     	angle = angle % 90;
-    	if (angle < 45){
+    	if (angle > 45){
     		return(true);
     	}
     	return(false);
@@ -201,6 +305,22 @@ public class WorldBorderViewer
     
     @SubscribeEvent
     public void rwle(RenderWorldLastEvent event){
+    	
+    	double worldRadius = this.defaultWorldRadius;
+    	double portalRadius = this.defaultPortalRadius;
+    	
+    	this.currentShard = null;
+    	if (currentServerName != null && currentWorldName != null){
+	    	if (this.config.shardsByServer.containsKey(currentServerName)){
+	    		HashMap<String, ShardConfig> currShards = this.config.shardsByServer.get(currentServerName);
+	    		if (currShards.containsKey(currentWorldName)){
+	    			this.currentShard = currShards.get(currentWorldName);
+	    			worldRadius = this.currentShard.worldRadius;
+	    			portalRadius = this.currentShard.portalRadius;
+	    		}
+	    	}
+    	}
+    	
     	EntityPlayerSP thePlayer = this.mc.thePlayer;
     	double playerX = thePlayer.lastTickPosX + (thePlayer.posX - thePlayer.lastTickPosX) * event.getPartialTicks();
         double playerY = thePlayer.lastTickPosY + (thePlayer.posY - thePlayer.lastTickPosY) * event.getPartialTicks();
@@ -238,7 +358,7 @@ public class WorldBorderViewer
     		portalZ2 = portalRadius * Math.cos(nextTheta);
     		
     		// World border segment
-    		if (!isAngleInPortal(currPoint*segmentAngle, halfPortalAngle) && !isAngleInPortal(nextPoint*segmentAngle, halfPortalAngle)){
+    		if (!isAngleInPortal(currPoint*segmentAngle, defaultHalfPortalAngle) && !isAngleInPortal(nextPoint*segmentAngle, defaultHalfPortalAngle)){
 	    		if (this.mc.thePlayer.getDistance(worldX1, this.mc.thePlayer.posY, worldZ1) <= renderDistance &&
 	    				this.mc.thePlayer.getDistance(worldX2,  this.mc.thePlayer.posY, worldZ2) <= renderDistance){
 	        		// Both points are within render distance. Render the square
@@ -247,7 +367,7 @@ public class WorldBorderViewer
     		}
     		
     		// Portal segment
-    		if (isAngleInPortal(currPoint*segmentAngle, halfPortalAngle) && isAngleInPortal(nextPoint*segmentAngle, halfPortalAngle)){
+    		if (isAngleInPortal(currPoint*segmentAngle, defaultHalfPortalAngle) && isAngleInPortal(nextPoint*segmentAngle, defaultHalfPortalAngle)){
 	    		if (this.mc.thePlayer.getDistance(portalX1, this.mc.thePlayer.posY, portalZ1) <= renderDistance &&
 	    				this.mc.thePlayer.getDistance(portalX2,  this.mc.thePlayer.posY, portalZ2) <= renderDistance){
 	        		// Both points are within render distance. Render the square
@@ -256,7 +376,7 @@ public class WorldBorderViewer
     		}
     		
     		// Linking Z shape (radiating from the center of the map outward with two small legs to join up to the other borders)
-    		if (isAngleInPortal(currPoint*segmentAngle, halfPortalAngle) != isAngleInPortal(nextPoint*segmentAngle, halfPortalAngle)){
+    		if (isAngleInPortal(currPoint*segmentAngle, defaultHalfPortalAngle) != isAngleInPortal(nextPoint*segmentAngle, defaultHalfPortalAngle)){
     			if (this.mc.thePlayer.getDistance(worldX1,  this.mc.thePlayer.posY, worldZ1) <= renderDistance &&
     					this.mc.thePlayer.getDistance(worldX2,  this.mc.thePlayer.posY, worldZ2) <= renderDistance &&
     					this.mc.thePlayer.getDistance(portalX1, this.mc.thePlayer.posY, portalZ1) <= renderDistance &&
@@ -274,10 +394,10 @@ public class WorldBorderViewer
     	    		
     			    // link the world border to the portal side
     	    		if(isLeftSide(sideAngle)){
-    	    			drawSquare(sideXw, minY, sideZw, worldX2, maxY, worldZ2, 1.0F, 0, 0, playerX, playerY, playerZ);
+    	    			drawSquare(worldX1, minY, worldZ1, sideXw, maxY, sideZw, 1.0F, 0, 0, playerX, playerY, playerZ);
     	    		}
     	    		else{
-    	    			drawSquare(worldX1, minY, worldZ1, sideXw, maxY, sideZw, 1.0F, 0, 0, playerX, playerY, playerZ);
+    	    			drawSquare(sideXw, minY, sideZw, worldX2, maxY, worldZ2, 1.0F, 0, 0, playerX, playerY, playerZ);
     	    		}
     	    		
     	    		// draw the portal side
@@ -285,10 +405,10 @@ public class WorldBorderViewer
     			    
     			    // link the portal to the side
     			    if(isLeftSide(sideAngle)){
-    			    	drawSquare(portalX1, minY, portalZ1, sideXp, maxY, sideZp, 0, 1.0F, 0, playerX, playerY, playerZ);
+    	    			drawSquare(sideXp, minY, sideZp, portalX2, maxY, portalZ2, 0, 1.0F, 0, playerX, playerY, playerZ);
     	    		}
     	    		else{
-    	    			drawSquare(sideXp, minY, sideZp, portalX2, maxY, portalZ2, 0, 1.0F, 0, playerX, playerY, playerZ);
+    			    	drawSquare(portalX1, minY, portalZ1, sideXp, maxY, sideZp, 0, 1.0F, 0, playerX, playerY, playerZ);
     	    		}
     			 }
     		}

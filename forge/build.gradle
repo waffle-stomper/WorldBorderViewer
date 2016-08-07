@@ -20,12 +20,12 @@ plugins {
     id "net.minecraftforge.gradle.forge" version "2.0.2"
 }
 */
-version = "0.3.2"
+version = "0.3.3"
 group= "wafflestomper" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = "1.10.2-WorldBorderViewer"
+archivesBaseName = "1.10-WorldBorderViewer"
 
 minecraft {
-    version = "1.10.2-12.18.1.2011"
+    version = "1.10-12.18.0.2000-1.10.0"
     runDir = "run"
     
     // the mappings can be changed at any time, and must be in the following format.

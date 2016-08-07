@@ -6,9 +6,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.opengl.GL11;
 
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.ScaledResolution;
@@ -17,28 +14,15 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.VertexBuffer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.launchwrapper.Launch;
-import net.minecraft.network.NetworkManager;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.Mod.EventHandler;
-import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
-import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
-import net.minecraftforge.fml.common.gameevent.TickEvent.RenderTickEvent;
-import net.minecraftforge.fml.common.network.FMLEmbeddedChannel;
-import net.minecraftforge.fml.common.network.FMLNetworkEvent;
-import net.minecraftforge.fml.common.network.NetworkRegistry;
-import net.minecraftforge.fml.common.network.FMLNetworkEvent.ClientConnectedToServerEvent;
-import net.minecraftforge.fml.common.network.FMLNetworkEvent.ClientCustomPacketEvent;
-import net.minecraftforge.fml.common.network.FMLNetworkEvent.CustomPacketEvent;
-import net.minecraftforge.fml.relauncher.Side;
 import wafflestomper.wafflecore.WaffleCore;
 import wafflestomper.wafflecore.WorldInfoEvent;
 
@@ -49,7 +33,7 @@ public class WorldBorderViewer
 {
 	
     public static final String MODID = "WorldBorderViewer";
-    public static final String VERSION = "0.3.1";
+    public static final String VERSION = "0.3.2";
     public static final String NAME = "World Border Viewer";
     
     public static final int viewRadiusBlocks = 5*16; //Used for quick check
@@ -283,7 +267,6 @@ public class WorldBorderViewer
      * Determines whether we're working on the left or right portal side (when viewed from the center)
      */
     private boolean isLeftSide(double angle){
-    	//TODO: Figure out why the logic has to be reversed for the new code. My head hurts right now.
     	if (this.currentShard != null){
 			for (PortalConfig p : this.currentShard.portals){
 				if (Double.compare(angle, p.angleFrom) == 0){
@@ -326,9 +309,9 @@ public class WorldBorderViewer
         double playerY = thePlayer.lastTickPosY + (thePlayer.posY - thePlayer.lastTickPosY) * event.getPartialTicks();
         double playerZ = thePlayer.lastTickPosZ + (thePlayer.posZ - thePlayer.lastTickPosZ) * event.getPartialTicks();
         
-    	float segmentAngle = 360.0f/circleSegments;
-    	double minY = playerY-5;
-    	double maxY = playerY+6.8;
+    	double segmentAngle = 360.0d/circleSegments;
+    	double minY = playerY-20;
+    	double maxY = playerY+20;
     	
     	int nextPoint = 1;
     	double worldX1 = 0;
@@ -340,13 +323,14 @@ public class WorldBorderViewer
     	double portalX2 = 0;
     	double portalZ2 = 0;
     	
-    	for (int currPoint=0; currPoint<circleSegments; currPoint++){
+    	for (int currPoint=0; //currPoint <=10; currPoint++){ 
+    						  currPoint<circleSegments; currPoint++){
     		nextPoint = currPoint+1;
     		if (nextPoint == circleSegments){
     			nextPoint = 0;
     		}
-    		double currTheta = Math.toRadians(currPoint*segmentAngle);
-    		double nextTheta = Math.toRadians(nextPoint*segmentAngle);
+    		double currTheta = Math.toRadians((540d-currPoint*segmentAngle)%360d);
+    		double nextTheta = Math.toRadians((540d-nextPoint*segmentAngle)%360d);
     		worldX1 = worldRadius * Math.sin(currTheta);
     		worldZ1 = worldRadius * Math.cos(currTheta);
     		worldX2 = worldRadius * Math.sin(nextTheta);
@@ -375,18 +359,22 @@ public class WorldBorderViewer
 	        	}
     		}
     		
+    		
     		// Linking Z shape (radiating from the center of the map outward with two small legs to join up to the other borders)
     		if (isAngleInPortal(currPoint*segmentAngle, defaultHalfPortalAngle) != isAngleInPortal(nextPoint*segmentAngle, defaultHalfPortalAngle)){
     			if (this.mc.thePlayer.getDistance(worldX1,  this.mc.thePlayer.posY, worldZ1) <= renderDistance &&
     					this.mc.thePlayer.getDistance(worldX2,  this.mc.thePlayer.posY, worldZ2) <= renderDistance &&
     					this.mc.thePlayer.getDistance(portalX1, this.mc.thePlayer.posY, portalZ1) <= renderDistance &&
     					this.mc.thePlayer.getDistance(portalX2, this.mc.thePlayer.posY, portalZ2) <= renderDistance){	
+    				
     				// get the endpoints of the radiating line
     				double sideAngle = getInternalPortalAngle(currPoint*segmentAngle, nextPoint*segmentAngle);
+    				
     				if (sideAngle < 0){
     					continue;
     				}
-    				double sideTheta = Math.toRadians(sideAngle);
+    				
+    				double sideTheta = Math.toRadians((540d-sideAngle)%360d);
     				double sideXp = portalRadius * Math.sin(sideTheta);
     	    		double sideZp = portalRadius * Math.cos(sideTheta);
     	    		double sideXw = worldRadius * Math.sin(sideTheta);

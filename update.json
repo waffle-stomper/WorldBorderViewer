@@ -1,9 +1,11 @@
 {
   "homepage": "https://github.com/waffle-stomper/WorldBorderViewer/releases",
   "promos":{
-    "1.10-recommended": "0.2.8"
+    "1.10-recommended": "0.3.2"
   },
   "1.10":{
+    "0.3.2": "*Update to 1.10.2\n* Moved world info message handling to WaffleCore\n* Fixed debug angle error\n* Reworked rendering code to render in a clockwise circle, starting at north",
+    "0.3.0": "Added shard-specific config",
     "0.2.8": "Added update notifications"
   }
 }

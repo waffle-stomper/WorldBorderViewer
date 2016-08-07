@@ -51,39 +51,10 @@ public class WBConfigManager {
 	private static final double W = 270d;
 	private static final double WNW = 292.5d;
 	private static final double NW = 315d;
-	private static final double NNW = 335.5;
+	private static final double NNW = 337.5;
 	
 	public WBConfigManager(){
 	}
-	
-	
-	/*
-	// Deprecated I guess
-	public void loadShardConfig(File shardConfigFile){
-		Type SHARDCONFIG_TYPE = new TypeToken<List<ShardConfig>>() {}.getType();
-		Gson gson = new Gson();
-		JsonReader reader;
-		try {
-			reader = new JsonReader(new FileReader(shardConfigFile));
-		} catch (FileNotFoundException e) {
-			this.shardConfigNotAvailable = true;
-			return;
-		}
-		List<ShardConfig> data;;
-		try{
-			data = gson.fromJson(reader, SHARDCONFIG_TYPE);
-		}
-		catch (IllegalStateException e){
-			// The most likely cause of this is that the file isn't an array (i.e. bounded by square brackets)
-			logger.error(e);
-			this.shardConfigNotAvailable = true;
-			return;
-		}
-		for (ShardConfig s : data){
-			System.out.println(s.serverName);
-		}
-	}
-	*/
 	
 	
 	private void setUpShardConfig(){
@@ -100,12 +71,12 @@ public class WBConfigManager {
 		
 		/////////////////////////////////////// Dev server worlds //////////////////////////////////////////////
 		HashMap<String, ShardConfig> devWorlds = new HashMap<String, ShardConfig>();
-		ShardConfig uuidWorld = new ShardConfig("localhost", "70d03911-8dbe-4c79-9ec0-516359935739", "UUID World", 20, 30);
-		uuidWorld.addPortal("N", 355, 5);
+		ShardConfig uuidWorld = new ShardConfig("localhost", "70d03911-8dbe-4c79-9ec0-516359935739", "UUID World", 20, 20);
+		uuidWorld.addPortal("N", 0, 360);
 		//uuidWorld.addPortal("E", ENE, ESE);
 		//uuidWorld.addPortal("S", SSE, SSW);
 		//uuidWorld.addPortal("W", WSW, WNW);
-		uuidWorld.addPortal("Rokko Steppe", 120, 180);
+		//uuidWorld.addPortal("Rokko Steppe", 120, 180);
 		devWorlds.put(uuidWorld.worldName, uuidWorld);
 		this.shardsByServer.put("localhost", devWorlds);
 		this.shardsByServer.put("192.168.1.102", devWorlds);
@@ -113,80 +84,88 @@ public class WBConfigManager {
 		////////////////////////////////////////  Civcraft shards ///////////////////////////////////////////////
 		HashMap<String, ShardConfig> civcraftShards = new HashMap<String, ShardConfig>();
 		
-	    // Naunet
-		ShardConfig naunet = new ShardConfig("mc.civcraft.co", "NO WORLD NAME YET n", "Naunet", 9999, 9999); //TODO: Find these values
-		naunet.addPortal("Tjikko", SSW, WSW); //TODO: Check these
-		civcraftShards.put(naunet.worldName, naunet);
-		
-		// Tjikko
-		ShardConfig tjikko = new ShardConfig("mc.civcraft.co", "44f4b133-a646-461a-a14a-5fd8c8dbc59c", "Tjikko", 1500d, 1510d);
-		tjikko.addPortal("Naunet", NNE, ENE); //TODO: Check these
-		tjikko.addPortal("Ulca Felya", WSW, WNW); //TODO: Check these
-		tjikko.addPortal("Rokko Steppe", 120, 180);
-		civcraftShards.put(tjikko.worldName, tjikko);
-		
 		// Rokko Steppe
-		ShardConfig rokko = new ShardConfig("mc.civcraft.co", "a72e4777-ad62-4e3b-a4e0-8cf2d15147ea", "Rokko Steppe", 2000d, 2010d);
-		rokko.addPortal("Tjikko", WNW, NNW);  //TODO: Check these
-		rokko.addPortal("Volans", SSW, WSW); //TODO: Check these
+		ShardConfig rokko = new ShardConfig("mc.civcraft.co", "a72e4777-ad62-4e3b-a4e0-8cf2d15147ea", "Rokko Steppe", 2000d, 2010d); 
+		rokko.addPortal("Volans", 202.5d, 247.5d);
+		rokko.addPortal("Tjikko", 292.5d, 337.5d);
 		civcraftShards.put(rokko.worldName, rokko);
 		
 		// Volans
 		ShardConfig volans = new ShardConfig("mc.civcraft.co", "b25abb31-fd1e-499d-a5b5-510f9d2ec501", "Volans", 1000d, 1010d);
-		volans.addPortal("Rokko Steppe", NNE, ENE); //TODO: Check these
-		volans.addPortal("Drakontas", WNW, NNW); //TODO: Check these
+		volans.addPortal("Rokko Steppe", 22.5d, 67.5d);
+		volans.addPortal("Drakontas", 292.5d, 337.5d);
 		civcraftShards.put(volans.worldName, volans);
 		
 		// Drakontas
-		ShardConfig drakontas = new ShardConfig("mc.civcraft.co", "NO WORLD NAME YET d", "Drakontas", 9999, 9999); // TODO: Find these values
-		drakontas.addPortal("Volans", ESE, SSE); //TODO: Check these
-		drakontas.addPortal("Isolde", SSW, WSW); //TODO: Check these
-		civcraftShards.put(drakontas.worldName, drakontas);
+		ShardConfig drakontas = new ShardConfig("mc.civcraft.co", "a7cbf239-6c11-4146-a715-ef0a9827b4c4", "Drakontas", 1750d, 1760d);
+		drakontas.addPortal("Volans", 90d, 150d);
+		drakontas.addPortal("Isolde", 210d, 270d);
+		drakontas.addPortal("Ulca Felya", 330d, 30d);
+		civcraftShards.put(drakontas.worldName, drakontas);		
 		
-		// Isolde
-		ShardConfig isolde = new ShardConfig("mc.civcraft.co", "NO WORLD NAME YET i", "Isolde", 9999, 9999); // TODO: Find these values
-		isolde.addPortal("Drakontas", NNE, ENE); //TODO: Check these
-		isolde.addPortal("Padzahr", WNW, NNW); //TODO: Check these
-		isolde.addPortal("Ulca Felya", NNW, NNE); //TODO: Check these
-		civcraftShards.put(isolde.worldName, isolde);
+		// Tjikko
+		ShardConfig tjikko = new ShardConfig("mc.civcraft.co", "44f4b133-a646-461a-a14a-5fd8c8dbc59c", "Tjikko", 1500d, 1510d);
+		tjikko.addPortal("Naunet", 0d, 60d);
+		tjikko.addPortal("Rokko Steppe", 120d, 180d);
+		tjikko.addPortal("Ulca Felya", 240d, 300d);
+		civcraftShards.put(tjikko.worldName, tjikko);				
+
+		// Eilon
+		ShardConfig eilon = new ShardConfig("mc.civcraft.co", "a358b10c-7041-40c5-ac5e-db5483a9dfc2", "Eilon", 1500, 1510);
+		eilon.addPortal("Ulca Felya", 60d, 120d);
+		eilon.addPortal("Padzahr", 180d, 240d);
+		eilon.addPortal("Abydos", 300d, 0d);
+		civcraftShards.put(eilon.worldName, eilon);		
+
+		// Abydos
+		ShardConfig abydos = new ShardConfig("mc.civcraft.co", "182702a7-ea3f-41de-a2d3-c046842d5e74", "Abydos", 2000, 2010);
+		abydos.addPortal("Sheol", 22.5d, 67.5d);
+		abydos.addPortal("Eilon", 112.5d, 157.5d);
+		civcraftShards.put(abydos.worldName, abydos);		
 		
 		// Padzahr
-		ShardConfig padzahr = new ShardConfig("mc.civcraft.co", "NO WORLD NAME YET p", "Padzahr", 9999, 9999);  // TODO: Find these values
-		padzahr.addPortal("Isolde", ESE, SSE); //TODO: Check these
-		padzahr.addPortal("Eilon", NNW, NNE); //TODO: Check these
-		civcraftShards.put(padzahr.worldName, padzahr);
+		ShardConfig padzahr = new ShardConfig("mc.civcraft.co", "7120b7a6-dd21-468c-8cd7-83d96f735589", "Padzahr", 1000, 1010);
+		padzahr.addPortal("Isolde", 112.5d, 157.5d);
+		padzahr.addPortal("Eilon", 22.5d, 67.5d);
+		civcraftShards.put(padzahr.worldName, padzahr);		
 		
-		// Eilon
-		ShardConfig eilon = new ShardConfig("mc.civcraft.co", "NO WORLD NAME YET e", "Eilon", 9999, 9999); // TODO: Find these values
-		eilon.addPortal("Padzahr", SSE, SSW); //TODO: Check these
-		eilon.addPortal("Abydos", NNW, NNE); //TODO: Check these
-		civcraftShards.put(eilon.worldName, eilon);
+		// Isolde
+		ShardConfig isolde = new ShardConfig("mc.civcraft.co", "197e2c4f-2fd6-464a-8754-53b24d9f7898", "Isolde", 2500, 2510);
+		isolde.addPortal("Drakontas", 22.5d, 67.5d);
+		isolde.addPortal("Padzahr", 292.5d, 337.5d);
+		civcraftShards.put(isolde.worldName, isolde);
 		
-		// Abydos
-		ShardConfig abydos = new ShardConfig("mc.civcraft.co", "NO WORLD NAME YET a", "Abydos", 9999, 9999); // TODO: Find these values
-		abydos.addPortal("Eilon", SSE, SSW); //TODO: Check these
-		abydos.addPortal("Sheol", NNE, ENE); //TODO: Check these
-		civcraftShards.put(abydos.worldName, abydos);
-		
-		// Sheol
-		ShardConfig sheol = new ShardConfig("mc.civcraft.co", "NO WORLD NAME YET s", "Sheol", 9999, 9999); // TODO: Find these values
-		sheol.addPortal("Abydos", SSW, WSW); //TODO: Check these
-		sheol.addPortal("Tigrillo", ESE, SSE); //TODO: Check these
-		civcraftShards.put(sheol.worldName, sheol);
+		// Naunet
+		ShardConfig naunet = new ShardConfig("mc.civcraft.co", "de730958-fa83-4e73-ab7f-bfdab8e27960", "Naunet", 1000d, 1010d);
+		naunet.addPortal("Tjikko", 202.5d, 247.5d);
+		civcraftShards.put(naunet.worldName, naunet);		
 		
 		// Tigrillo
-		ShardConfig tigrillo = new ShardConfig("mc.civcraft.co", "NO WORLD NAME YET t", "Tigrillo", 9999, 9999); // TODO: Find these values
-		tigrillo.addPortal("Sheol", NNE, ENE); //TODO: Check these
-		tigrillo.addPortal("Ulca Felya", SSE, SSW); //TODO: Check these
-		civcraftShards.put(tigrillo.worldName, tigrillo);
+		ShardConfig tigrillo = new ShardConfig("mc.civcraft.co", "63a68417-f07f-4cb5-a9d8-e5e702565967", "Tigrillo", 1750, 1760);
+		tigrillo.addPortal("Sheol", 270d, 330d);
+		tigrillo.addPortal("Ulca Felya", 150d, 210d);
+		civcraftShards.put(tigrillo.worldName, tigrillo);		
+		
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		/////////////////////////////////// Research needed for the shards below/ ///////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		// I think this is the lobby: 
+		// ba0cfdfb-4857-4efb-b516-0f5876d460d3
 		
 		// Ulca Felya
-		ShardConfig ulca = new ShardConfig("mc.civcraft.co", "NO WORLD NAME YET u", "Ulca Felya", 9999, 9999); // TODO: Find these values
+		ShardConfig ulca = new ShardConfig("mc.civcraft.co", "7f03aa4d-833c-4b0c-9d3b-a65a5c6eada0", "Ulca Felya", 3000, 3010);
 		ulca.addPortal("Tigrillo", NNW, NNE); //TODO: Check these
 		ulca.addPortal("Eilon", WSW, WNW); //TODO: Check these
 		ulca.addPortal("Tjikko", ENE, ESE); //TODO: Check these
 		ulca.addPortal("Drakontas", SSE, SSW); //TODO: Check these
-		civcraftShards.put(ulca.worldName, ulca);
+		civcraftShards.put(ulca.worldName, ulca);		
+		
+		// Sheol
+		ShardConfig sheol = new ShardConfig("mc.civcraft.co", "fc891b9e-4b20-4c8d-8f97-7436383e8105", "Sheol", 1300, 1310);
+		sheol.addPortal("Abydos", SSW, WSW); //TODO: Check these
+		sheol.addPortal("Tigrillo", ESE, SSE); //TODO: Check these
+		civcraftShards.put(sheol.worldName, sheol);
 		
 		this.shardsByServer.put("mc.civcraft.co", civcraftShards);
 	}
